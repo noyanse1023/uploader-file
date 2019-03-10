@@ -13,11 +13,11 @@
     </div>
 </template>
 <script>
-// let jpg = require('@/utils/jpg.js')
-// console.log(jpg)
 import jpg from '@/utils/jpg.js'
 import resize from '@/utils/resize.js'
 import FileStreamer from '@/utils/fileStreamer.js'
+import bufferConcat from '@/utils/arrayBufferConcat.js'
+import SnappyJS from 'snappyjs'
     export default {
         data() {
             return {
@@ -44,101 +44,35 @@ import FileStreamer from '@/utils/fileStreamer.js'
             },
             // 将图片文件转成BASE64格式
             html5Reader(file, item){
-                // const fileStreamer = new FileStreamer(file)
-                // while (!fileStreamer.isEndOfFile()) {
-                //     const data = fileStreamer.readAsArrayBuffer();
-                //     // this.showImage(data)
-                //     console.log(data);
-                // }
-                // console.log('chunks', chunks)
-                function concatenate(resultConstructor, ...arrays) {
-                    let totalLength = 0;
-                    for (let arr of arrays) {
-                        totalLength += arr.length;
-                    }
-                    let result = new resultConstructor(totalLength);
-                    let offset = 0;
-                    for (let arr of arrays) {
-                        result.set(arr, offset);
-                        offset += arr.length;
-                    }
-                    return result;
-                }
-
                 let res = []
-                let int8View = []
-                let int16Array = []
-                let int32Array = []
-                let uint8Array = []
+                let concatRes = null
                 this.parseFile(file, result => {
-                    // console.log(result)
-                    res.push(result)
-                    // console.log(res)
-                    window.res = res
-                    // for(let i=0;i<res.length;i++) {
-                    //     if(res[i] !== 'done') {
-                    //         // let dataView = new DataView(res[i])
-                    //         int8View.push(new Int8Array(res[i]))
-                    //         int16Array.push(new Int16Array(res[i]))
-                    //         int32Array.push(new Int32Array(res[i]))
-                    //         uint8Array.push(new Uint8Array(res[i]))
-                    //     }
-                    // }
-                    // console.log(int8View)
-                    // console.log(int16Array)
-
-                    // console.log(int32Array)
-                    // console.log(uint8Array)
-
-                    // while (result !== 'done') {
-                        
-                        // this.showImage(result)                     
-                    // }
-                })
-                // const reader = new FileReader()
-                // reader.onload = (e) => {
-                //     this.showImage(e.target.result) 
-                //     // console.log('one-peiece', e.target.result) 
-                //     // console.log(e.target.result)
-                //     // const c = document.getElementById('canvas')
-                //     // // const ctx = c.getContext('2d')
-                //     // const ctx = c.getContext('2d')
-                //     // let img = new Image();
-                //     // img.onload = function(){
-                //     //     // alert('加载完毕')
-                        
-                //     //     // 将图片画到canvas上面上去！
-                //     //     ctx.drawImage(img,100,100);
-        
-        
-                //     // }
-                //     // img.src = e.target.result
-                //     // this.$set(item, 'src', e.target.result)
-                // }
-                // // reader.readAsDataURL(file)
-                // reader.readAsArrayBuffer(file)       
+                    if (result === 'done') {
+                        concatRes = bufferConcat(...res)          
+                        this.showImage(concatRes)
+                        // console.log(concatRes)
+                    } else {
+                         // 在这里压缩
+                        res.push(result)
+                    }
+                })            
             },
-
             showImage(binaryImage) {
-                // console.log('array-buffer', binaryImage)
-                let array = new Uint8ClampedArray(binaryImage)
-                // console.log('array-uint', array)
                 const this_ = this
                 let j = new jpg.JpegImage()
                 const c = document.getElementById('canvas')
                 const ctx = c.getContext('2d')
                 
                 j.onload = function() {
-                    c.width = j.width;
-                    c.height = j.height;
-                    let d = ctx.getImageData(0,0,j.width,j.height);
+                    let d = ctx.getImageData(0,0,c.width,c.height);
                     j.copyToImageData(d);
-                    let resized0 = new resize.Resize(j.width, j.height, 150, 150, true, true, false, function (buffer) {
+                    // console.log('showImage', d)
+                    ctx.putImageData(d, 0, 0);
+                    let resized = new resize.Resize(c.width, c.height, 150, 150, true, true, false, function (buffer) {
                         const data = this_.updateCanvas(ctx, ctx.createImageData(150, 150), buffer);
                         ctx.putImageData(data, 0, 0);
                     });
-                    // console.log(d.data)
-                    resized0.resize(d.data);
+                    resized.resize(d.data);
                 };
                 j.load(binaryImage);
             },
@@ -148,9 +82,7 @@ import FileStreamer from '@/utils/fileStreamer.js'
 				for (let x = 0; x < length; ++x) {
 					data[x] = frameBuffer[x] & 0xFF;
                 }
-                // console.log('updateCanvas', imageBuffer)
                 return imageBuffer
-				// contextHandlePassed.putImageData(imageBuffer, 0, 0);
 			},
             parseFile(file, callback) {
                 let fileSize = file.size
